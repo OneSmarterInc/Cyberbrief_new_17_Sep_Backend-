@@ -1,0 +1,20 @@
+# =========================
+# PYTHON / DJANGO (Backend)
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+db.sqlite3
+*.log
+
+# Ignore local AI model weights (too large for GitHub)
+ai_model/
+
+# Database dumps
+datadump.json
+*.json
+*.sql
+*.sqlite3
