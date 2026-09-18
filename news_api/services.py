@@ -156,6 +156,8 @@ def fetch_and_store_news():
         print("Loading AI Model into memory...")
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM
+            
+            # Resolves the absolute path dynamically so cron doesn't fail
             MODEL_PATH = os.path.join(settings.BASE_DIR, "ai_model")
             
             tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
