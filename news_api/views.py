@@ -431,6 +431,7 @@ def unsubscribe_email(request):
     if not sub:
         return HttpResponse("Subscriber not found.", status=404)
 
+    # Automatically pauses the email sending for this user and reflects in admin dash
     sub.is_active = False
     sub.save()
 
@@ -445,14 +446,13 @@ def generate_email_html(articles, subscriber):
     unsubscribe_link = f"{BACKEND_URL}/api/unsubscribe/?token={token}"
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     
+    # NEW: Strictly Cybersecurity Related Images
     PUBLIC_IMAGES = [
-        "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1510511459019-5d6459c40318?auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80",
-        "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=300&q=80",
+        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80", # Code matrix
+        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80", # Cyber setup
+        "https://images.unsplash.com/photo-1614064641936-38998971c9cb?auto=format&fit=crop&w=300&q=80", # Padlock/security
+        "https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=300&q=80", # Digital lock
+        "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80", # Server room
     ]
     
     html = f"""<!DOCTYPE html>
@@ -476,7 +476,10 @@ def generate_email_html(articles, subscriber):
         for i, a in enumerate(articles):
             title = a.ai_headline or a.title
             summary = a.summary or "Summary unavailable."
-            article_link = a.link or "#"
+            
+            # NEW: Opens YOUR website to this specific article ID instead of the external original link
+            article_link = f"{FRONTEND_URL}/?article_id={a.id}"
+            
             img_url = PUBLIC_IMAGES[i % len(PUBLIC_IMAGES)]
             if len(summary) > 230:
                 summary = summary[:227] + "..."
