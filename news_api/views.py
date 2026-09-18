@@ -223,14 +223,14 @@ def verify_2fa(request):
                 "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": True}
             })
             
-response.set_cookie(
-    "auth_token",
-    token.key,
-    httponly=True,
-    secure=True,
-    samesite="None",
-    max_age=43200
-)
+            response.set_cookie(
+            "auth_token",
+            token.key,
+            httponly=True,
+            secure=True,
+            samesite="None",
+            max_age=43200
+            )
             return response
         else:
             return Response({"error": "Invalid 2FA code."}, status=401)
