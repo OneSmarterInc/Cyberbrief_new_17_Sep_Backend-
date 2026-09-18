@@ -3,13 +3,19 @@ import datetime
 
 last_sent_date = None
 
+def scheduled_ingest():
+    from .services import fetch_and_store_news
+    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Checking for new stories...")
+    fetch_and_store_news()
+
 def check_and_send_emails():
     global last_sent_date
     from .models import SMTPConfig
     from .views import process_mass_blast
 
     config = SMTPConfig.objects.first()
-    if not config or not config.daily_send_time: return
+    if not config or not config.daily_send_time:
+        return
 
     now = datetime.datetime.now()
     current_time = now.strftime("%H:%M")
@@ -21,11 +27,6 @@ def check_and_send_emails():
 
 def start():
     scheduler = BackgroundScheduler()
-    
-    # NOTE: The AI ingest function (scheduled_ingest) has been permanently removed 
-    # from the Django BackgroundScheduler to prevent Gunicorn OOM crashes on EC2.
-    # AI fetching must now be triggered via Linux crontab calling the management command.
-    
-    # Only the lightweight email checker remains in the background thread.
+    scheduler.add_job(scheduled_ingest, 'interval', minutes=5, max_instances=1)
     scheduler.add_job(check_and_send_emails, 'cron', minute='*', max_instances=1)
     scheduler.start()
