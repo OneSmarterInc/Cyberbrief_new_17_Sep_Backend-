@@ -115,7 +115,7 @@ def register(request):
     
     response.set_cookie(
         'auth_token', token.key, httponly=True, 
-        secure=not settings.DEBUG, samesite='none', max_age=43200
+        secure=not settings.DEBUG, samesite='lax', max_age=43200
     )
     return response
 
