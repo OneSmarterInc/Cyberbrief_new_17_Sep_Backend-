@@ -30,7 +30,7 @@ def check_and_send_emails():
 def start():
     scheduler = BackgroundScheduler()
     # max_instances=1 guarantees the jobs will never overlap and crash
-    scheduler.add_job(scheduled_ingest, 'interval', minutes=30, max_instances=1)
+    scheduler.add_job(scheduled_ingest, 'interval', minutes=10, max_instances=1)
     
     # Hourly reset job removed here!
     
