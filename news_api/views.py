@@ -7,6 +7,7 @@ import pyotp
 import edge_tts
 import logging
 import uuid
+import email.utils
 
 from django.conf import settings
 from django.shortcuts import render
@@ -34,8 +35,9 @@ from .services import get_stored_news
 
 logger = logging.getLogger(__name__)
 
-FRONTEND_URL = "http://localhost:5173" 
-BACKEND_URL = "http://localhost:8000"
+# --- UPDATED: Live Production URLs ---
+FRONTEND_URL = "https://cyberbrief-new-15-sep-2026.vercel.app" 
+BACKEND_URL = "http://100.60.190.113:8000" # <-- Replace with your EC2 Public IP
 
 IMAGE_URL = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
 
@@ -59,7 +61,7 @@ def health(request):
 
 @api_view(["GET"])
 def news(request):
-    articles = Article.objects.exclude(ai_headline="").order_by("-id")
+    articles = Article.objects.exclude(ai_headline="")
     data = []
 
     for article in articles:
@@ -75,6 +77,37 @@ def news(request):
             "is_active": article.is_active,
             "image_url": IMAGE_URL
         })
+
+    # --- ROBUST DATE SORTING ---
+    # Parses both RSS (RFC-822) and Atom (ISO-8601) formats to guarantee chronological order
+    def extract_date(item):
+        pub_str = item.get("published", "")
+        if not pub_str:
+            return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        
+        # Try RSS Format (RFC-822)
+        try:
+            dt = email.utils.parsedate_to_datetime(pub_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt
+        except Exception:
+            pass
+            
+        # Try Atom Format (ISO-8601)
+        try:
+            dt = datetime.datetime.fromisoformat(pub_str.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt
+        except Exception:
+            pass
+            
+        # Fallback for unrecognizable dates
+        return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+
+    # Sorts the final array so the absolute newest article sits at Index 0
+    data.sort(key=extract_date, reverse=True)
 
     total_sources = RSSFeed.objects.filter(is_active=True).count()
 
@@ -431,7 +464,7 @@ def unsubscribe_email(request):
     if not sub:
         return HttpResponse("Subscriber not found.", status=404)
 
-    # Automatically pauses the email sending for this user and reflects in admin dash
+    # Sets status to PAUSED in the admin dashboard instantly
     sub.is_active = False
     sub.save()
 
@@ -446,14 +479,23 @@ def generate_email_html(articles, subscriber):
     unsubscribe_link = f"{BACKEND_URL}/api/unsubscribe/?token={token}"
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     
-    # NEW: Strictly Cybersecurity Related Images
     PUBLIC_IMAGES = [
-        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80", # Code matrix
-        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80", # Cyber setup
-        "https://images.unsplash.com/photo-1614064641936-38998971c9cb?auto=format&fit=crop&w=300&q=80", # Padlock/security
-        "https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=300&q=80", # Digital lock
-        "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80", # Server room
-    ]
+    "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1633265486064-086b219458ec?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1614064641936-38998971c9cb?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1555949963-aa79dcee981c?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1605902711622-cfb43c4437d1?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80",
+]
     
     html = f"""<!DOCTYPE html>
     <html>
@@ -477,7 +519,7 @@ def generate_email_html(articles, subscriber):
             title = a.ai_headline or a.title
             summary = a.summary or "Summary unavailable."
             
-            # NEW: Opens YOUR website to this specific article ID instead of the external original link
+            # Opens exactly to the Vercel Frontend specific news card
             article_link = f"{FRONTEND_URL}/?article_id={a.id}"
             
             img_url = PUBLIC_IMAGES[i % len(PUBLIC_IMAGES)]
@@ -650,7 +692,7 @@ def get_social_links(request):
         "email": config.email,
         "insta": config.insta,
         "facebook": config.facebook,
-        "linkedin": config.linkedin, # <-- ADD THIS
+        "linkedin": config.linkedin,
     })
 
 @api_view(["GET", "POST"])
@@ -664,7 +706,7 @@ def admin_social_links(request):
         config.email = request.data.get("email", "")
         config.insta = request.data.get("insta", "")
         config.facebook = request.data.get("facebook", "")
-        config.linkedin = request.data.get("linkedin", "") # <-- ADD THIS
+        config.linkedin = request.data.get("linkedin", "") 
         config.save()
         return Response({"status": "success", "message": "Social links updated successfully"})
     return Response({
@@ -673,7 +715,7 @@ def admin_social_links(request):
         "email": config.email,
         "insta": config.insta,
         "facebook": config.facebook,
-        "linkedin": config.linkedin, # <-- ADD THIS
+        "linkedin": config.linkedin, 
     })
 # --- BLOG ENDPOINTS WITH SCHEDULED FILTERING & BASE64 STORAGE ---
 @api_view(["GET"])
