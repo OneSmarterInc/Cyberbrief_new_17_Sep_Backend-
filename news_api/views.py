@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # --- UPDATED: Live Production URLs ---
 FRONTEND_URL = "https://cyberbrief-new-15-sep-2026.vercel.app" 
-BACKEND_URL = "http://100.60.190.113:8000" # <-- Replace with your EC2 Public IP
+BACKEND_URL = "http://100.60.190.113:8000" # Explicitly matches your EC2 public IP
 
 IMAGE_URL = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
 
@@ -79,13 +79,11 @@ def news(request):
         })
 
     # --- ROBUST DATE SORTING ---
-    # Parses both RSS (RFC-822) and Atom (ISO-8601) formats to guarantee chronological order
     def extract_date(item):
         pub_str = item.get("published", "")
         if not pub_str:
             return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
         
-        # Try RSS Format (RFC-822)
         try:
             dt = email.utils.parsedate_to_datetime(pub_str)
             if dt.tzinfo is None:
@@ -94,7 +92,6 @@ def news(request):
         except Exception:
             pass
             
-        # Try Atom Format (ISO-8601)
         try:
             dt = datetime.datetime.fromisoformat(pub_str.replace("Z", "+00:00"))
             if dt.tzinfo is None:
@@ -103,10 +100,8 @@ def news(request):
         except Exception:
             pass
             
-        # Fallback for unrecognizable dates
         return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 
-    # Sorts the final array so the absolute newest article sits at Index 0
     data.sort(key=extract_date, reverse=True)
 
     total_sources = RSSFeed.objects.filter(is_active=True).count()
@@ -172,7 +167,6 @@ def login(request):
     from .models import Admin2FA
     two_fa, created = Admin2FA.objects.get_or_create(user=user)
 
-    # Generate a random, single-use challenge ID that expires in 5 minutes (300 seconds)
     challenge_id = str(uuid.uuid4())
     cache.set(f"mfa_{challenge_id}", user.id, timeout=300)
 
@@ -245,7 +239,6 @@ def verify_2fa(request):
             two_fa.is_enabled = True
             two_fa.save()
             
-            # Consume the challenge so it cannot be used again
             cache.delete(f"mfa_{challenge_id}")
             
             Token.objects.filter(user=user).delete()
@@ -464,7 +457,6 @@ def unsubscribe_email(request):
     if not sub:
         return HttpResponse("Subscriber not found.", status=404)
 
-    # Sets status to PAUSED in the admin dashboard instantly
     sub.is_active = False
     sub.save()
 
@@ -480,22 +472,12 @@ def generate_email_html(articles, subscriber):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     
     PUBLIC_IMAGES = [
-    "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1633265486064-086b219458ec?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1614064641936-38998971c9cb?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1555949963-aa79dcee981c?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1605902711622-cfb43c4437d1?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=300&q=80",
-    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80",
-]
+        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80",
+        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80",
+        "https://images.unsplash.com/photo-1614064641936-38998971c9cb?auto=format&fit=crop&w=300&q=80", 
+        "https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=300&q=80", 
+        "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=300&q=80", 
+    ]
     
     html = f"""<!DOCTYPE html>
     <html>
@@ -519,8 +501,8 @@ def generate_email_html(articles, subscriber):
             title = a.ai_headline or a.title
             summary = a.summary or "Summary unavailable."
             
-            # Opens exactly to the Vercel Frontend specific news card
-            article_link = f"{FRONTEND_URL}/?article_id={a.id}"
+            # --- UPDATED: Appends &sub=true to bypass frontend subscribe popups ---
+            article_link = f"{FRONTEND_URL}/?article_id={a.id}&sub=true"
             
             img_url = PUBLIC_IMAGES[i % len(PUBLIC_IMAGES)]
             if len(summary) > 230:
