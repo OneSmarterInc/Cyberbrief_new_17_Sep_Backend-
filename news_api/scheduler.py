@@ -3,14 +3,6 @@ import datetime
 
 last_sent_date = None
 
-def scheduled_ingest():
-    from .services import fetch_and_store_news
-    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Checking for new stories...")
-    fetch_and_store_news()
-
-# NOTE: scheduled_reset has been removed to prevent wiping your database every hour. 
-# Your articles will now safely persist for 30 days via the automated purge in services.py.
-
 def check_and_send_emails():
     global last_sent_date
     from .models import SMTPConfig
@@ -29,10 +21,11 @@ def check_and_send_emails():
 
 def start():
     scheduler = BackgroundScheduler()
-    # max_instances=1 guarantees the jobs will never overlap and crash
-    scheduler.add_job(scheduled_ingest, 'interval', minutes=5, max_instances=1)
     
-    # Hourly reset job removed here!
+    # NOTE: The AI ingest function (scheduled_ingest) has been permanently removed 
+    # from the Django BackgroundScheduler to prevent Gunicorn OOM crashes on EC2.
+    # AI fetching must now be triggered via Linux crontab calling the management command.
     
+    # Only the lightweight email checker remains in the background thread.
     scheduler.add_job(check_and_send_emails, 'cron', minute='*', max_instances=1)
     scheduler.start()
