@@ -27,6 +27,6 @@ def check_and_send_emails():
 
 def start():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(scheduled_ingest, 'interval', minutes=1, max_instances=1)
+    scheduler.add_job(scheduled_ingest, 'interval', minutes=5, max_instances=1)
     scheduler.add_job(check_and_send_emails, 'cron', minute='*', max_instances=1)
     scheduler.start()
