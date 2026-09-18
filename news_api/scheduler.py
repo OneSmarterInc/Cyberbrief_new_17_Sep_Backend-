@@ -27,5 +27,5 @@ def start():
     # AI fetching must now be triggered via Linux crontab calling the management command.
     
     # Only the lightweight email checker remains in the background thread.
-    scheduler.add_job(check_and_send_emails, 'cron', minute='*', max_instances=1)
+    scheduler.add_job(check_and_send_emails, 'cron', minute=5, max_instances=1)
     scheduler.start()
