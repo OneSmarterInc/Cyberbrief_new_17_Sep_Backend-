@@ -245,13 +245,24 @@ def fetch_and_store_news():
         f"Live Scan Complete: Checked {len(raw_items)} articles. "
         f"Filtered (Older than 2h): {filtered_out_time}. "
         f"Filtered (Non-cyber): {filtered_out_keywords}. "
-        f"Saved/processed: {new_found} candidates."
+        f"Saved/processed: {new_found} candidates.",
+        flush=True,
     )
 
-    pending_articles = Article.objects.filter(ai_headline="").order_by("id")[:10]
+    print("Checking for unsummarized articles...", flush=True)
+    pending_articles = list(
+        Article.objects.filter(ai_headline="").order_by("id")[:10]
+    )
+    print(
+        f"Found {len(pending_articles)} unsummarized articles.",
+        flush=True,
+    )
 
     if pending_articles:
-        print(f"AI Model Processing {pending_articles.count()} unsummarized cybersecurity articles with Qwen2.5...")
+        print(
+            f"AI Model Processing up to 10 unsummarized cybersecurity articles with Qwen2.5...",
+            flush=True,
+        )
         
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM
