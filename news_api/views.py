@@ -460,16 +460,35 @@ def unsubscribe_email(request):
     sub.is_active = False
     sub.save()
 
-    return render(
-        request,
-        "unsubscribe_success.html",
-        {"email": sub.email},
-    )
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Unsubscribed</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; background-color: #F3EEE3; color: #161412; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+            .container {{ text-align: center; padding: 40px; border: 2px solid #161412; background-color: #fff; max-width: 400px; }}
+            h2 {{ font-family: Georgia, serif; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Unsubscribed Successfully</h2>
+            <p><strong>support@onesmarter.com</strong> has been removed from the Cyberbriefs mailing list.</p>
+            <p>You will no longer receive automated daily briefings.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HttpResponse(html_content)
 
 def generate_email_html(articles, subscriber):
     token = signing.dumps({"subscriber_id": subscriber.id})
     unsubscribe_link = f"{BACKEND_URL}/api/unsubscribe/?token={token}"
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    # --- UPDATED: Date format strictly set to MM-DD-YYYY ---
+    current_date = datetime.datetime.now().strftime("%m-%d-%Y")
     
     PUBLIC_IMAGES = [
         "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=80",
