@@ -173,7 +173,9 @@ def fetch_and_store_news():
     filtered_out_keywords = 0
     filtered_out_time = 0
 
-    cutoff_time = timezone.now() - timedelta(hours=2)
+    now = timezone.now()
+    cutoff_time = now - timedelta(hours=24)
+    future_cutoff = now + timedelta(days=1)
     candidates = []
 
     for data in raw_items:
@@ -188,7 +190,7 @@ def fetch_and_store_news():
 
         published_dt = parse_entry_datetime(item)
 
-        if published_dt and published_dt < cutoff_time:
+        if published_dt and (published_dt < cutoff_time or published_dt > future_cutoff):
             filtered_out_time += 1
             continue
 
@@ -243,7 +245,7 @@ def fetch_and_store_news():
 
     print(
         f"Live Scan Complete: Checked {len(raw_items)} articles. "
-        f"Filtered (Older than 2h): {filtered_out_time}. "
+        f"Filtered (Outside 24h window or future-dated): {filtered_out_time}. "
         f"Filtered (Non-cyber): {filtered_out_keywords}. "
         f"Saved/processed: {new_found} candidates.",
         flush=True,
