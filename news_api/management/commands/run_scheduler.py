@@ -9,12 +9,10 @@ class Command(BaseCommand):
     help = "Run Cyberbrief background scheduler"
 
     def handle(self, *args, **options):
-        start()
-
-        self.stdout.write(self.style.SUCCESS("Cyberbrief scheduler started."))
+        scheduler = start()
 
         try:
-            while True:
+            while scheduler.running:
                 time.sleep(60)
         except KeyboardInterrupt:
-            pass
+            scheduler.shutdown(wait=False)
