@@ -173,8 +173,8 @@ def fetch_and_store_news():
     filtered_out_keywords = 0
     filtered_out_time = 0
 
-    # 30-minute threshold
     cutoff_time = timezone.now() - timedelta(hours=2)
+    candidates = []
 
     for data in raw_items:
         feed_info = data["feed_info"]
@@ -186,10 +186,8 @@ def fetch_and_store_news():
         if not title:
             continue
 
-        # --- 30-MINUTE TIME WINDOW CHECK ---
         published_dt = parse_entry_datetime(item)
-        
-        # If timestamp exists and is older than 30 minutes, skip it
+
         if published_dt and published_dt < cutoff_time:
             filtered_out_time += 1
             continue
@@ -200,24 +198,62 @@ def fetch_and_store_news():
 
         category = detect_category(title, raw_summary, default_category=feed_info.get("category"))
         guid = make_guid(feed_info["name"], link, title)
-        
+
         published_date_str = clean_text(item.get("published") or item.get("updated") or "")
         if not published_date_str:
             published_date_str = format_datetime(timezone.now())
 
-        if not Article.objects.filter(guid=guid).exists():
-            Article.objects.create(
-                guid=guid,
-                source=feed_info["name"],
-                category=category,
-                title=title,
-                ai_headline="",  
-                summary=raw_summary,
-                link=link,
-                published=published_date_str,
-            )
-            new_found += 1
-            print(f"--> NEW CYBER STORY [{feed_info['name']}]: {title[:40]}...")
+        candidates.append({
+            "guid": guid,
+            "source": feed_info["name"],
+            "category": category,
+            "title": title,
+            "summary": raw_summary,
+            "link": link,
+            "published": published_date_str,
+        })
+
+    print(f"RSS processing complete: {len(raw_items)} fetched, {len(candidates)} cybersecurity candidates.", flush=True)
+
+    candidate_guids = {item["guid"] for item in candidates}
+    existing_guids = set(
+        Article.objects.filter(guid__in=candidate_guids).values_list("guid", flat=True)
+    )
+
+    new_candidates = [
+        item for item in candidates
+        if item["guid"] not in existing_guids
+    ]
+
+    if new_candidates:
+        Article.objects.bulk_create(
+            [
+                Article(
+                    guid=item["guid"],
+                    source=item["source"],
+                    category=item["category"],
+                    title=item["title"],
+                    ai_headline="",
+                    summary=item["summary"],
+                    link=item["link"],
+                    published=item["published"],
+                )
+                for item in new_candidates
+            ],
+            batch_size=200,
+        )
+
+        for item in new_candidates:
+            print(f"--> NEW CYBER STORY [{item['source']}]: {item['title'][:40]}...", flush=True)
+
+        new_found = len(new_candidates)
+
+    print(
+        f"Live Scan Complete: Checked {len(raw_items)} articles. "
+        f"Filtered (Older than 2h): {filtered_out_time}. "
+        f"Filtered (Non-cyber): {filtered_out_keywords}. "
+        f"Saved: {new_found} new."
+    )
 
     print(
         f"Live Scan Complete: Checked {len(raw_items)} articles. "
