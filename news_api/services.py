@@ -4,6 +4,7 @@ import re
 import html
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.utils import format_datetime
 
 import requests
 import feedparser
@@ -79,18 +80,22 @@ def get_active_feeds():
 def fetch_feed_data(feed_info):
     items = []
     try:
-        # Upgraded headers to bypass basic Cloudflare/AWS bot blocks
+        # Ultra-realistic browser headers to bypass AWS/Cloudflare blocks
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
         }
-        response = requests.get(feed_info["url"], timeout=10, headers=headers)
+        response = requests.get(feed_info["url"], timeout=15, headers=headers)
         response.raise_for_status()
         feed = feedparser.parse(response.content)
-        for item in feed.entries[:6]: 
+        
+        # Scans deeper into the feed to ensure no articles are missed during a 30-min window
+        for item in feed.entries[:15]: 
             items.append({"feed_info": feed_info, "item": item})
     except Exception as e:
-        # Prints out the 403 Forbidden or Timeout if AWS IP is blocked
         print(f"RSS Fetch Error [{feed_info['name']}]: {e}")
     return items
 
@@ -129,6 +134,11 @@ def fetch_and_store_news():
 
         category = detect_category(title, raw_summary, default_category=feed_info.get("category"))
         guid = make_guid(feed_info["name"], link, title)
+        
+        # Smart Date Fallback: If RSS fails to provide a date, assign current time so it stays at the top
+        published_date = clean_text(item.get("published") or item.get("updated") or "")
+        if not published_date:
+            published_date = format_datetime(timezone.now())
 
         if not Article.objects.filter(guid=guid).exists():
             Article.objects.create(
@@ -139,27 +149,21 @@ def fetch_and_store_news():
                 ai_headline="",  
                 summary=raw_summary,
                 link=link,
-                published=clean_text(item.get("published") or item.get("updated") or ""),
+                published=published_date,
             )
             new_found += 1
             print(f"--> NEW CYBER STORY [{feed_info['name']}]: {title[:40]}...")
 
     print(f"Live Scan Complete: Checked {len(raw_items)} articles. Skipped {filtered_out} non-cyber articles. Added {new_found} new.")
 
-    # PHASE 2: Qwen2.5 Chat-Template Summarization Pipeline
     pending_articles = Article.objects.filter(ai_headline="")
     
     if pending_articles.exists():
         print(f"AI Model Processing {pending_articles.count()} unsummarized cybersecurity articles with Qwen2.5...")
         
-        # MODEL LOADED LOCALLY TO PREVENT GUNICORN OOM CRASHES
-        print("Loading AI Model into memory...")
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM
-            
-            # Resolves the absolute path dynamically so cron doesn't fail
             MODEL_PATH = os.path.join(settings.BASE_DIR, "ai_model")
-            
             tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
             model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
         except Exception as e:
