@@ -4,7 +4,7 @@ import re
 import html
 import datetime
 from datetime import timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 from email.utils import format_datetime, parsedate_to_datetime
 
 import requests
@@ -150,8 +150,21 @@ def fetch_and_store_news():
 
     with ThreadPoolExecutor(max_workers=25) as executor:
         futures = [executor.submit(fetch_feed_data, feed) for feed in current_rss_feeds]
-        for future in as_completed(futures):
-            raw_items.extend(future.result())
+        try:
+            for future in as_completed(futures, timeout=90):
+                try:
+                    raw_items.extend(future.result())
+                except Exception as e:
+                    print(f"RSS worker error: {e}", flush=True)
+        except FuturesTimeoutError:
+            unfinished = sum(1 for future in futures if not future.done())
+            print(
+                f"RSS scan timeout: {unfinished} feed requests did not finish within 90 seconds. Continuing with completed feeds.",
+                flush=True
+            )
+            for future in futures:
+                if not future.done():
+                    future.cancel()
 
     new_found = 0
     filtered_out_keywords = 0
