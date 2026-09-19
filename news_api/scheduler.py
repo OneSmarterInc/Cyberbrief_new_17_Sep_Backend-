@@ -2,11 +2,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from django.utils import timezone
 import datetime
 
+
 def scheduled_ingest():
     from .services import fetch_and_store_news
+
     now = timezone.localtime()
-    print(f"[{now.strftime('%H:%M:%S')}] Checking for new stories...")
-    fetch_and_store_news()
+    print(f"[{now.strftime('%H:%M:%S')}] Checking for new stories...", flush=True)
+
+    try:
+        fetch_and_store_news()
+    except Exception:
+        import traceback
+        traceback.print_exc()
+
 
 def check_and_send_emails():
     from .models import NewsletterSendLog, SMTPConfig
@@ -25,7 +33,7 @@ def check_and_send_emails():
             "%H:%M"
         ).time()
     except (TypeError, ValueError):
-        print(f"Invalid daily send time: {config.daily_send_time}")
+        print(f"Invalid daily send time: {config.daily_send_time}", flush=True)
         return
 
     if now.time() < scheduled_time:
@@ -35,26 +43,43 @@ def check_and_send_emails():
         return
 
     success, message = process_mass_blast()
-    print(f"Daily newsletter: {message}")
+    print(f"Daily newsletter: {message}", flush=True)
 
     if success:
         NewsletterSendLog.objects.get_or_create(send_date=current_date)
 
+
 def start():
-    scheduler = BackgroundScheduler(timezone=timezone.get_current_timezone())
+    scheduler = BackgroundScheduler(
+        timezone=timezone.get_current_timezone()
+    )
+
     scheduler.add_job(
         scheduled_ingest,
-        'interval',
+        "interval",
         minutes=30,
+        next_run_time=timezone.now(),
         max_instances=1,
-        coalesce=True
+        coalesce=True,
+        misfire_grace_time=300,
+        id="news_ingestion",
+        replace_existing=True,
     )
+
     scheduler.add_job(
         check_and_send_emails,
-        'interval',
+        "interval",
         minutes=1,
+        next_run_time=timezone.now(),
         max_instances=1,
-        coalesce=True
+        coalesce=True,
+        misfire_grace_time=300,
+        id="daily_email_check",
+        replace_existing=True,
     )
+
     scheduler.start()
+
+    print("Cyberbrief scheduler started. News ingestion scheduled every 30 minutes.", flush=True)
+
     return scheduler
