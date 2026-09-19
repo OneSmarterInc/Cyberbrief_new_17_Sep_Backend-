@@ -148,23 +148,26 @@ def fetch_and_store_news():
     current_rss_feeds = get_active_feeds()
     raw_items = []
 
-    with ThreadPoolExecutor(max_workers=25) as executor:
-        futures = [executor.submit(fetch_feed_data, feed) for feed in current_rss_feeds]
-        try:
-            for future in as_completed(futures, timeout=90):
-                try:
-                    raw_items.extend(future.result())
-                except Exception as e:
-                    print(f"RSS worker error: {e}", flush=True)
-        except FuturesTimeoutError:
-            unfinished = sum(1 for future in futures if not future.done())
-            print(
-                f"RSS scan timeout: {unfinished} feed requests did not finish within 90 seconds. Continuing with completed feeds.",
-                flush=True
-            )
-            for future in futures:
-                if not future.done():
-                    future.cancel()
+    executor = ThreadPoolExecutor(max_workers=25)
+    futures = [executor.submit(fetch_feed_data, feed) for feed in current_rss_feeds]
+
+    try:
+        for future in as_completed(futures, timeout=90):
+            try:
+                raw_items.extend(future.result())
+            except Exception as e:
+                print(f"RSS worker error: {e}", flush=True)
+        executor.shutdown(wait=True)
+    except FuturesTimeoutError:
+        unfinished = sum(1 for future in futures if not future.done())
+        print(
+            f"RSS scan timeout: {unfinished} feed requests did not finish within 90 seconds. Continuing with completed feeds.",
+            flush=True
+        )
+        for future in futures:
+            if not future.done():
+                future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
 
     new_found = 0
     filtered_out_keywords = 0
