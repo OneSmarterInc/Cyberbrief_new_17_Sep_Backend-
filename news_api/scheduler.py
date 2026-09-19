@@ -57,7 +57,7 @@ def start():
     scheduler.add_job(
         scheduled_ingest,
         "interval",
-        minutes=5,
+        minutes=30,
         next_run_time=timezone.now(),
         max_instances=1,
         coalesce=True,
@@ -80,6 +80,6 @@ def start():
 
     scheduler.start()
 
-    print("Cyberbrief scheduler started. News ingestion scheduled every 5 minutes.", flush=True)
+    print("Cyberbrief scheduler started. News ingestion scheduled every 30 minutes.", flush=True)
 
     return scheduler
