@@ -124,12 +124,17 @@ def fetch_feed_data(feed_info):
         response = requests.get(feed_info["url"], timeout=15, headers=headers)
         response.raise_for_status()
         feed = feedparser.parse(response.content)
-        
-        # Pull top 25 to evaluate all recent articles
-        for item in feed.entries[:25]: 
+
+        for item in feed.entries[:25]:
             items.append({"feed_info": feed_info, "item": item})
+
+        print(f"RSS OK [{feed_info['name']}]: {len(items)} articles", flush=True)
+    except requests.exceptions.Timeout:
+        print(f"RSS TIMEOUT [{feed_info['name']}]: request exceeded 15 seconds", flush=True)
+    except requests.exceptions.RequestException as e:
+        print(f"RSS ERROR [{feed_info['name']}]: {e}", flush=True)
     except Exception as e:
-        print(f"RSS Fetch Error [{feed_info['name']}]: {e}")
+        print(f"RSS ERROR [{feed_info['name']}]: {e}", flush=True)
     return items
 
 def fetch_and_store_news():
