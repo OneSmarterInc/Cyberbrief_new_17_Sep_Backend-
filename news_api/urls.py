@@ -19,7 +19,6 @@ urlpatterns = [
     
     # --- NEWSLETTER & FEEDBACK ---
     path('subscribe/', views.subscribe_newsletter, name='subscribe_newsletter'),
-    path('unsubscribe/', views.unsubscribe_email, name='unsubscribe_email'),
     path('api/unsubscribe/', views.unsubscribe_email, name='unsubscribe_email'),
     path('audio/', views.generate_audio, name='generate_audio'),
     path("social/", views.get_social_links, name="get_social_links"),
