@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from .models import Article, RSSFeed
+from .rss_feeds import DEFAULT_RSS_FEEDS
 
 # --- STRICT CYBERSECURITY KEYWORD FILTER ---
 CYBER_KEYWORDS = [
@@ -68,15 +69,22 @@ def reset_article_database():
     return deleted_count
 
 def get_active_feeds():
+    existing_urls = set(RSSFeed.objects.values_list("url", flat=True))
+    missing_feeds = [
+        RSSFeed(
+            name=feed["name"],
+            url=feed["url"],
+            category=feed["category"],
+            is_active=True,
+        )
+        for feed in DEFAULT_RSS_FEEDS
+        if feed["url"] not in existing_urls
+    ]
+    if missing_feeds:
+        RSSFeed.objects.bulk_create(missing_feeds, batch_size=100, ignore_conflicts=True)
+
     feeds = RSSFeed.objects.filter(is_active=True)
-    if not feeds.exists():
-        return [
-            {"name": "The Hacker News", "url": "[https://feeds.feedburner.com/TheHackersNews](https://feeds.feedburner.com/TheHackersNews)", "category": "Cybersecurity"},
-            {"name": "BleepingComputer", "url": "[https://www.bleepingcomputer.com/feed/](https://www.bleepingcomputer.com/feed/)", "category": "Cybersecurity"},
-            {"name": "Krebs on Security", "url": "[https://krebsonsecurity.com/feed/](https://krebsonsecurity.com/feed/)", "category": "Cybersecurity"},
-            {"name": "Dark Reading", "url": "[https://www.darkreading.com/rss.xml](https://www.darkreading.com/rss.xml)", "category": "Cybersecurity"},
-        ]
-    return [{"name": f.name, "url": f.url, "category": "Cybersecurity"} for f in feeds]
+    return [{"name": f.name, "url": f.url, "category": f.category} for f in feeds]
 
 def parse_entry_datetime(item):
     """
