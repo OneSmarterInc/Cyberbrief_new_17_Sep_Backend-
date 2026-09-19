@@ -215,17 +215,7 @@ def fetch_and_store_news():
 
     print(f"RSS processing complete: {len(raw_items)} fetched, {len(candidates)} cybersecurity candidates.", flush=True)
 
-    candidate_guids = {item["guid"] for item in candidates}
-    existing_guids = set(
-        Article.objects.filter(guid__in=candidate_guids).values_list("guid", flat=True)
-    )
-
-    new_candidates = [
-        item for item in candidates
-        if item["guid"] not in existing_guids
-    ]
-
-    if new_candidates:
+    if candidates:
         Article.objects.bulk_create(
             [
                 Article(
@@ -238,33 +228,29 @@ def fetch_and_store_news():
                     link=item["link"],
                     published=item["published"],
                 )
-                for item in new_candidates
+                for item in candidates
             ],
             batch_size=200,
+            ignore_conflicts=True,
         )
+        new_found = len(candidates)
 
-        for item in new_candidates:
-            print(f"--> NEW CYBER STORY [{item['source']}]: {item['title'][:40]}...", flush=True)
-
-        new_found = len(new_candidates)
+        for item in candidates:
+            print(
+                f"--> PROCESSED CYBER STORY [{item['source']}]: {item['title'][:40]}...",
+                flush=True
+            )
 
     print(
         f"Live Scan Complete: Checked {len(raw_items)} articles. "
         f"Filtered (Older than 2h): {filtered_out_time}. "
         f"Filtered (Non-cyber): {filtered_out_keywords}. "
-        f"Saved: {new_found} new."
+        f"Saved/processed: {new_found} candidates."
     )
 
-    print(
-        f"Live Scan Complete: Checked {len(raw_items)} articles. "
-        f"Filtered (Older than 30m): {filtered_out_time}. "
-        f"Filtered (Non-cyber): {filtered_out_keywords}. "
-        f"Saved: {new_found} new."
-    )
+    pending_articles = Article.objects.filter(ai_headline="").order_by("id")[:10]
 
-    pending_articles = Article.objects.filter(ai_headline="")
-    
-    if pending_articles.exists():
+    if pending_articles:
         print(f"AI Model Processing {pending_articles.count()} unsummarized cybersecurity articles with Qwen2.5...")
         
         try:
