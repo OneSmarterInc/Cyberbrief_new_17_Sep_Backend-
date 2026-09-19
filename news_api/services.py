@@ -153,7 +153,7 @@ def fetch_and_store_news():
     filtered_out_time = 0
 
     # 30-minute threshold
-    cutoff_time = timezone.now() - timedelta(minutes=30)
+    cutoff_time = timezone.now() - timedelta(hours=2)
 
     for data in raw_items:
         feed_info = data["feed_info"]
