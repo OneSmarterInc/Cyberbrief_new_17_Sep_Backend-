@@ -2,9 +2,10 @@ import os
 import hashlib
 import re
 import html
+import datetime
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from email.utils import format_datetime
+from email.utils import format_datetime, parsedate_to_datetime
 
 import requests
 import feedparser
@@ -77,10 +78,42 @@ def get_active_feeds():
         ]
     return [{"name": f.name, "url": f.url, "category": "Cybersecurity"} for f in feeds]
 
+def parse_entry_datetime(item):
+    """
+    Parses entry date into a timezone-aware UTC datetime.
+    Checks published_parsed, updated_parsed, string representations, or returns None.
+    """
+    time_tuple = item.get("published_parsed") or item.get("updated_parsed")
+    if time_tuple:
+        try:
+            dt = datetime.datetime(*time_tuple[:6], tzinfo=datetime.timezone.utc)
+            return dt
+        except Exception:
+            pass
+
+    raw_date = item.get("published") or item.get("updated") or ""
+    if raw_date:
+        try:
+            dt = parsedate_to_datetime(raw_date)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt
+        except Exception:
+            pass
+
+        try:
+            dt = datetime.datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return dt
+        except Exception:
+            pass
+
+    return None
+
 def fetch_feed_data(feed_info):
     items = []
     try:
-        # Ultra-realistic browser headers to bypass AWS/Cloudflare blocks
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
@@ -92,8 +125,8 @@ def fetch_feed_data(feed_info):
         response.raise_for_status()
         feed = feedparser.parse(response.content)
         
-        # Scans deeper into the feed to ensure no articles are missed during a 30-min window
-        for item in feed.entries[:15]: 
+        # Pull top 25 to evaluate all recent articles
+        for item in feed.entries[:25]: 
             items.append({"feed_info": feed_info, "item": item})
     except Exception as e:
         print(f"RSS Fetch Error [{feed_info['name']}]: {e}")
@@ -116,7 +149,11 @@ def fetch_and_store_news():
             raw_items.extend(future.result())
 
     new_found = 0
-    filtered_out = 0
+    filtered_out_keywords = 0
+    filtered_out_time = 0
+
+    # 30-minute threshold
+    cutoff_time = timezone.now() - timedelta(minutes=30)
 
     for data in raw_items:
         feed_info = data["feed_info"]
@@ -128,17 +165,24 @@ def fetch_and_store_news():
         if not title:
             continue
 
+        # --- 30-MINUTE TIME WINDOW CHECK ---
+        published_dt = parse_entry_datetime(item)
+        
+        # If timestamp exists and is older than 30 minutes, skip it
+        if published_dt and published_dt < cutoff_time:
+            filtered_out_time += 1
+            continue
+
         if not is_cybersecurity_related(title, raw_summary):
-            filtered_out += 1
+            filtered_out_keywords += 1
             continue
 
         category = detect_category(title, raw_summary, default_category=feed_info.get("category"))
         guid = make_guid(feed_info["name"], link, title)
         
-        # Smart Date Fallback: If RSS fails to provide a date, assign current time so it stays at the top
-        published_date = clean_text(item.get("published") or item.get("updated") or "")
-        if not published_date:
-            published_date = format_datetime(timezone.now())
+        published_date_str = clean_text(item.get("published") or item.get("updated") or "")
+        if not published_date_str:
+            published_date_str = format_datetime(timezone.now())
 
         if not Article.objects.filter(guid=guid).exists():
             Article.objects.create(
@@ -149,12 +193,17 @@ def fetch_and_store_news():
                 ai_headline="",  
                 summary=raw_summary,
                 link=link,
-                published=published_date,
+                published=published_date_str,
             )
             new_found += 1
             print(f"--> NEW CYBER STORY [{feed_info['name']}]: {title[:40]}...")
 
-    print(f"Live Scan Complete: Checked {len(raw_items)} articles. Skipped {filtered_out} non-cyber articles. Added {new_found} new.")
+    print(
+        f"Live Scan Complete: Checked {len(raw_items)} articles. "
+        f"Filtered (Older than 30m): {filtered_out_time}. "
+        f"Filtered (Non-cyber): {filtered_out_keywords}. "
+        f"Saved: {new_found} new."
+    )
 
     pending_articles = Article.objects.filter(ai_headline="")
     
