@@ -92,6 +92,13 @@ class Admin2FA(models.Model):
     def __str__(self):
         return f"2FA for {self.user.username}"
 
+class NewsletterSendLog(models.Model):
+    send_date = models.DateField(unique=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(self.send_date)
+
 class RSSFeed(models.Model):
     name = models.CharField(max_length=150)
     url = models.URLField(max_length=500, unique=True)
