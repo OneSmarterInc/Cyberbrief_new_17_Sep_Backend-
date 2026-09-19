@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # --- UPDATED: Live Production URLs ---
 FRONTEND_URL = "https://cyberbrief-new-15-sep-2026.vercel.app"  # Explicitly matches your EC2 public IP
-BACKEND_URL = "http://100.60.190.113"
+BACKEND_URL = "https://backend.cyberbriefs.org"
 
 IMAGE_URL = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
 
