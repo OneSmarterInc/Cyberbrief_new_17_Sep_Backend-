@@ -147,3 +147,33 @@ class Book(models.Model):
 
     def __str__(self):
         return self.title
+
+class VolunteerApplication(models.Model):
+    full_name = models.CharField(max_length=255)
+    email = models.EmailField()
+    position = models.CharField(max_length=255)
+    preferred_desk = models.CharField(max_length=255, blank=True)
+    pitch = models.TextField()
+    portfolio_url = models.URLField(max_length=500, blank=True)
+    resume_data = models.TextField(blank=True, null=True) # Base64 encoded file
+    samples_data = models.TextField(blank=True, null=True) # Base64 encoded file
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.full_name} - {self.position}"
+    
+class OpenPosition(models.Model):
+    title = models.CharField(max_length=255)
+    seats = models.IntegerField(default=1)  # Changed from CharField to IntegerField
+    description = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
