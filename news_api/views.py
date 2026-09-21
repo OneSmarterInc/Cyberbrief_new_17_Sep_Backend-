@@ -29,7 +29,7 @@ from rest_framework.throttling import AnonRateThrottle
 from django.db import models
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-
+from .models import OpenPosition, VolunteerApplication
 from .models import Article, SocialMediaConfig, RSSFeed
 from .services import get_stored_news
 
@@ -958,3 +958,107 @@ def get_active_rss_feeds(request):
     feeds = RSSFeed.objects.filter(is_active=True).order_by("name")
     data = [{"id": f.id, "name": f.name, "category": f.category, "url": f.url} for f in feeds]
     return Response({"feeds": data})
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def submit_volunteer(request):
+    try:
+        position_title = request.data.get("position", "")
+        app = VolunteerApplication.objects.create(
+            full_name=request.data.get("full_name", ""),
+            email=request.data.get("email", ""),
+            position=position_title,
+            preferred_desk=request.data.get("preferred_desk", ""),
+            pitch=request.data.get("pitch", ""),
+            portfolio_url=request.data.get("portfolio_url", ""),
+            resume_data=request.data.get("resume_data", ""),
+            samples_data=request.data.get("samples_data", "")
+        )
+        
+        # AUTO-DECREASE SEATS
+        pos = OpenPosition.objects.filter(title=position_title).first()
+        if pos and pos.seats > 0:
+            pos.seats -= 1
+            if pos.seats == 0:
+                pos.is_active = False # Auto-hide if full
+            pos.save()
+
+        return Response({"status": "success", "id": app.id})
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+
+@api_view(["GET", "DELETE"])
+@authentication_classes([CookieTokenAuthentication])
+@permission_classes([IsAdminUser])
+def admin_volunteers(request, app_id=None):
+    if request.method == "DELETE" and app_id:
+        try:
+            app = VolunteerApplication.objects.get(id=app_id)
+            
+            # AUTO-RESTORE SEATS ON DELETE
+            pos = OpenPosition.objects.filter(title=app.position).first()
+            if pos:
+                pos.seats += 1
+                if pos.seats > 0:
+                    pos.is_active = True # Auto-publish if seats open up
+                pos.save()
+
+            app.delete()
+            return Response({"status": "success"})
+        except VolunteerApplication.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+            
+    apps = VolunteerApplication.objects.all()
+    data = [{
+        "id": a.id, "full_name": a.full_name, "email": a.email, 
+        "position": a.position, "preferred_desk": a.preferred_desk,
+        "pitch": a.pitch, "portfolio_url": a.portfolio_url,
+        "resume_data": a.resume_data, "samples_data": a.samples_data,
+        "created_at": a.created_at.strftime("%Y-%m-%d %H:%M")
+    } for a in apps]
+    return Response({"applications": data})
+
+
+@api_view(["GET", "POST", "PUT", "DELETE"])
+@authentication_classes([CookieTokenAuthentication])
+@permission_classes([IsAdminUser])
+def admin_positions(request, pos_id=None):
+    if request.method == "GET":
+        positions = OpenPosition.objects.all()
+        data = [{"id": p.id, "title": p.title, "seats": p.seats, "description": p.description, "is_active": p.is_active} for p in positions]
+        return Response({"positions": data})
+        
+    elif request.method == "POST":
+        pos = OpenPosition.objects.create(
+            title=request.data.get("title", ""),
+            seats=int(request.data.get("seats", 1)),
+            description=request.data.get("description", "")
+        )
+        return Response({"status": "success", "id": pos.id})
+        
+    elif request.method == "PUT" and pos_id:
+        try:
+            pos = OpenPosition.objects.get(id=pos_id)
+            
+            # Allow updating active status, title, description, and seats
+            if "is_active" in request.data: pos.is_active = request.data["is_active"]
+            if "title" in request.data: pos.title = request.data["title"]
+            if "description" in request.data: pos.description = request.data["description"]
+            if "seats" in request.data: pos.seats = int(request.data["seats"])
+                
+            pos.save()
+            return Response({"status": "success"})
+        except OpenPosition.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+            
+    elif request.method == "DELETE" and pos_id:
+        OpenPosition.objects.filter(id=pos_id).delete()
+        return Response({"status": "success"})
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def get_positions(request):
+    positions = OpenPosition.objects.filter(is_active=True)
+    data = [{"id": p.id, "title": p.title, "seats": p.seats, "description": p.description} for p in positions]
+    return Response({"positions": data})
