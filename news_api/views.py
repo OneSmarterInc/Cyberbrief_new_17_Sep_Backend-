@@ -65,6 +65,9 @@ def news(request):
     data = []
 
     for article in articles:
+        # Safely get professor_id, defaulting to 1 if it somehow fails
+        prof_id = getattr(article, 'professor_id', 1) 
+        
         data.append({
             "id": article.id,
             "source": article.source,
@@ -75,7 +78,8 @@ def news(request):
             "link": article.link,
             "published": article.published,
             "is_active": article.is_active,
-            "image_url": IMAGE_URL
+            "image_url": IMAGE_URL,
+            "professor_id": prof_id # <-- ADDED THIS LINE TO SEND DATA TO FRONTEND
         })
 
     # --- ROBUST DATE SORTING ---
