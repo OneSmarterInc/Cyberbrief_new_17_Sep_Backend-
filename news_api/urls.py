@@ -42,4 +42,12 @@ urlpatterns = [
     path("administration/blogs/<int:blog_id>/", views.admin_modify_blog, name="admin_modify_blog"),
     path('administration/books/', views.admin_manage_books, name='admin_manage_books'),
     path('administration/books/<int:book_id>/', views.admin_modify_book, name='admin_modify_book'),
+
+    path('volunteer/', views.submit_volunteer),
+    path('admin/volunteers/', views.admin_volunteers),
+    path('admin/volunteers/<int:app_id>/', views.admin_volunteers),
+
+    path('positions/', views.get_positions),
+    path('admin/positions/', views.admin_positions),
+    path('admin/positions/<int:pos_id>/', views.admin_positions),
 ]
