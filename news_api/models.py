@@ -2,6 +2,9 @@ from django.db import models
 from django.db import models
 from django.contrib.auth.models import User
 
+def get_random_professor():
+    return random.randint(1, 8)
+
 
 class AdminTwoFactor(models.Model):
     user = models.OneToOneField(
@@ -27,6 +30,9 @@ class Article(models.Model):
     published = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    
+    # --- NEW: Random professor assignment ---
+    professor_id = models.IntegerField(default=get_random_professor)
 
     class Meta:
         ordering = ["-created_at"]
