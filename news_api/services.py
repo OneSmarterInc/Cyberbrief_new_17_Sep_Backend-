@@ -509,6 +509,11 @@ def fetch_and_store_news():
         if not published_date_str:
             published_date_str = format_datetime(timezone.now())
 
+        # --- KEYWORD CLASSIFICATION FOR PROFESSOR ASSIGNMENT ---
+        from .models import determine_professor_by_content
+        combined_text = f"{title} {raw_summary} {category}"
+        assigned_prof_id = determine_professor_by_content(combined_text)
+
         candidates.append({
             "guid": guid,
             "source": feed_info["name"],
@@ -517,6 +522,7 @@ def fetch_and_store_news():
             "summary": raw_summary,
             "link": link,
             "published": published_date_str,
+            "professor_id": assigned_prof_id,
         })
 
     print(f"RSS processing complete: {len(raw_items)} fetched, {len(candidates)} cybersecurity candidates.", flush=True)
@@ -533,6 +539,7 @@ def fetch_and_store_news():
                     summary=item["summary"],
                     link=item["link"],
                     published=item["published"],
+                    professor_id=item["professor_id"],  # <--- Assigned based on keywords
                 )
                 for item in candidates
             ],
@@ -543,7 +550,7 @@ def fetch_and_store_news():
 
         for item in candidates:
             print(
-                f"--> PROCESSED CYBER STORY [{item['source']}]: {item['title'][:40]}...",
+                f"--> PROCESSED CYBER STORY [{item['source']} | Desk ID: {item['professor_id']}]: {item['title'][:40]}...",
                 flush=True
             )
 
@@ -652,8 +659,14 @@ def fetch_and_store_news():
 
             art.ai_headline = art.title[:500]
             art.summary = final_summary[:2000]
-            art.save(update_fields=["ai_headline", "summary"])
-            print(f"--> AI Summary Ready: {art.title[:30]}...")
+
+            # --- RE-EVALUATE PROFESSOR ID WITH AI SUMMARY ---
+            from .models import determine_professor_by_content
+            combined_text = f"{art.title} {art.ai_headline} {art.summary} {art.category}"
+            art.professor_id = determine_professor_by_content(combined_text)
+
+            art.save(update_fields=["ai_headline", "summary", "professor_id"])
+            print(f"--> AI Summary & Desk Assignment Ready [Desk ID: {art.professor_id}]: {art.title[:30]}...")
 
     close_old_connections()
 
