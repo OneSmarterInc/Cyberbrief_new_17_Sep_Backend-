@@ -1,10 +1,135 @@
-import random
-from django.db import models
+import re
 from django.db import models
 from django.contrib.auth.models import User
 
+# --- 8 Specialized Cybersecurity Keyword Groups ---
+PROFESSOR_KEYWORD_MAP = {
+    1: [  # Security Operations (SOC)
+        "siem", "soar", "soc", "security operations center", "secops", "xdr", "edr", 
+        "ndr", "mdr", "security incident response", "incident response", 
+        "incident investigation", "digital forensics", "forensics", "threat detection", 
+        "intrusion detection", "intrusion prevention", "ids", "ips"
+    ],
+    2: [  # Vulnerability & Application Security
+        "vulnerability", "vulnerabilities", "exploit", "exploitation", "zero-day", "0-day", 
+        "zero day", "security flaw", "security flaws", "cve", "cvss", "kev", 
+        "known exploited vulnerability", "security patch", "patching", "patch management", 
+        "security update", "firmware vulnerability", "critical vulnerability", 
+        "remote code execution", "rce", "privilege escalation", "local privilege escalation", 
+        "lpe", "command injection", "code injection", "sql injection", "sqli", "xss", 
+        "cross-site scripting", "csrf", "ssrf", "xxe", "path traversal", "directory traversal", 
+        "buffer overflow", "memory corruption", "authentication bypass", "sandbox escape", 
+        "security bypass", "application security", "appsec", "software security", 
+        "secure coding", "devsecops", "code security", "source code vulnerability", 
+        "dependency vulnerability", "browser security", "chrome vulnerability", 
+        "firefox vulnerability", "edge vulnerability", "safari vulnerability", 
+        "mobile vulnerability", "bug bounty", "responsible disclosure", "security advisory"
+    ],
+    3: [  # Threat Intelligence & Research
+        "threat actor", "threat actors", "attack group", "adversary", "adversaries", 
+        "apt", "advanced persistent threat", "nation-state attack", "state-sponsored", 
+        "state sponsored", "threat intelligence", "cyber threat intelligence", "cti", 
+        "ioc", "indicators of compromise", "ttp", "ttps", "threat hunting", "threat report", 
+        "security report", "threat research", "security researcher", "security researchers", 
+        "ethical hacker", "dark web", "darkweb", "dark web marketplace", "underground forum", 
+        "crowdstrike", "sentinelone", "mandiant"
+    ],
+    4: [  # Malware & Ransomware Security
+        "malware", "ransomware", "spyware", "adware", "trojan", "rootkit", "worm", 
+        "backdoor", "keylogger", "botnet", "cryptojacking", "wiper", "stealer", 
+        "infostealer", "loader", "dropper", "mobile malware", "ransomware group", 
+        "ransomware gang", "ransomware attack", "ransomware campaign", "extortion", 
+        "double extortion", "malware analysis", "reverse engineering malware", 
+        "sophos security", "eset security", "trend micro"
+    ],
+    5: [  # Identity & Data Security
+        "data breach", "data breaches", "data leak", "data leaks", "information leak", 
+        "information disclosure", "database breach", "account takeover", "ato", 
+        "credential theft", "credential stealing", "stolen credentials", "stolen data", 
+        "leaked credentials", "credential dump", "data dump", "encryption", "decryption", 
+        "cryptography", "pki", "digital certificate", "ssl", "tls", "https security", 
+        "authentication", "authorization", "mfa", "2fa", "multi-factor authentication", 
+        "password security", "passwordless", "identity security", "iam", 
+        "identity and access management", "pam", "privileged access management", 
+        "zero trust", "zero-trust", "access control"
+    ],
+    6: [  # Network & Infrastructure Security
+        "firewall", "waf", "web application firewall", "ddos", "distributed denial of service", 
+        "denial of service", "dos attack", "botnet attack", "dns attack", "dns hijacking", 
+        "dns poisoning", "domain hijacking", "bgp hijacking", "network attack", 
+        "network intrusion", "iot security", "ot security", "ics security", "scada security", 
+        "industrial cybersecurity", "critical infrastructure security", 
+        "automotive cybersecurity", "vehicle cybersecurity", "cisco security", 
+        "fortinet security", "palo alto networks security", "check point security", 
+        "zscaler security"
+    ],
+    7: [  # Cloud & Supply Chain Security
+        "cloud security", "cloud cybersecurity", "aws security", "azure security", 
+        "google cloud security", "cloud vulnerability", "cloud breach", "cloud attack", 
+        "container security", "docker security", "kubernetes security", "k8s security", 
+        "serverless security", "saas security", "api security", "api vulnerability", 
+        "api attack", "software supply chain", "software supply-chain attack", 
+        "supply chain attack", "supply-chain security", "open source security", 
+        "third-party risk", "dependency confusion", "typosquatting"
+    ],
+    8: [  # Privacy, Compliance & Social Engineering
+        "phishing", "spear phishing", "spearphishing", "whaling", "smishing", "vishing", 
+        "business email compromise", "bec", "email security", "malicious email", 
+        "social engineering", "identity theft", "credential harvesting", "privacy", 
+        "data privacy", "privacy breach", "privacy violation", "gdpr", "hipaa security", 
+        "compliance", "security compliance", "cyber compliance", "pci dss", "iso 27001", 
+        "nist cybersecurity", "cisa", "cis controls"
+    ]
+}
+
+def determine_professor_by_content(text):
+    """Scans text against keyword mapping and returns the professor ID with the most matches."""
+    if not text:
+        return 1
+    
+    clean_text = text.lower()
+    scores = {prof_id: 0 for prof_id in PROFESSOR_KEYWORD_MAP.keys()}
+
+    for prof_id, keywords in PROFESSOR_KEYWORD_MAP.items():
+        for kw in keywords:
+            pattern = r'\b' + re.escape(kw) + r'\b'
+            matches = len(re.findall(pattern, clean_text))
+            if matches > 0:
+                scores[prof_id] += matches
+
+    best_prof = max(scores, key=scores.get)
+    return best_prof if scores[best_prof] > 0 else 1
+
+# Dummy function restored to satisfy old migration dependency lookups
 def get_random_professor():
-    return random.randint(1, 8)
+    return 1
+
+
+class Article(models.Model):
+    guid = models.CharField(max_length=500, unique=True)
+    source = models.CharField(max_length=150)
+    category = models.CharField(max_length=50)
+    title = models.TextField()
+    ai_headline = models.TextField(blank=True)
+    summary = models.TextField(blank=True)
+    link = models.URLField(max_length=1000, blank=True)
+    published = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    professor_id = models.IntegerField(default=get_random_professor)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        # Dynamically evaluate keywords across the article text to assign the correct desk
+        combined_text = f"{self.title} {self.ai_headline} {self.summary} {self.category}"
+        self.professor_id = determine_professor_by_content(combined_text)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.ai_headline or self.title
 
 
 class AdminTwoFactor(models.Model):
@@ -20,26 +145,6 @@ class AdminTwoFactor(models.Model):
     def __str__(self):
         return f"2FA - {self.user.username}"
 
-class Article(models.Model):
-    guid = models.CharField(max_length=500, unique=True)
-    source = models.CharField(max_length=150)
-    category = models.CharField(max_length=50)
-    title = models.TextField()
-    ai_headline = models.TextField(blank=True)
-    summary = models.TextField(blank=True)
-    link = models.URLField(max_length=1000, blank=True)
-    published = models.CharField(max_length=200, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-    
-    # --- NEW: Random professor assignment ---
-    professor_id = models.IntegerField(default=get_random_professor)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return self.ai_headline or self.title
 
 class ArticleQuery(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="queries")
@@ -52,6 +157,7 @@ class ArticleQuery(models.Model):
 
     def __str__(self):
         return f"Query for {self.article.id}"
+
 
 class SMTPConfig(models.Model):
     name = models.CharField(max_length=150, blank=True)
@@ -69,10 +175,7 @@ class SMTPConfig(models.Model):
         ('NONE', 'None'),
     ]
     security_protocol = models.CharField(max_length=10, choices=PROTOCOL_CHOICES, default='TLS')
-    
-    # NEW: Daily scheduled time
     daily_send_time = models.CharField(max_length=5, default="08:00") 
-    
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -83,13 +186,14 @@ class Subscriber(models.Model):
     email = models.EmailField(unique=True)
     subscribed_at = models.DateTimeField(auto_now_add=True)
     emails_received = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True) # <--- ADD THIS LINE
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["-subscribed_at"]
 
     def __str__(self):
         return self.email
+
 
 class Admin2FA(models.Model):
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name="admin_2fa")
@@ -99,12 +203,14 @@ class Admin2FA(models.Model):
     def __str__(self):
         return f"2FA for {self.user.username}"
 
+
 class NewsletterSendLog(models.Model):
     send_date = models.DateField(unique=True)
     sent_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return str(self.send_date)
+
 
 class RSSFeed(models.Model):
     name = models.CharField(max_length=150)
@@ -116,38 +222,42 @@ class RSSFeed(models.Model):
     def __str__(self):
         return f"{self.name} ({self.category})"
     
+
 class SocialMediaConfig(models.Model):
     twitter = models.URLField(max_length=500, blank=True)
     youtube = models.URLField(max_length=500, blank=True)
     email = models.CharField(max_length=500, blank=True)
     insta = models.URLField(max_length=500, blank=True)
     facebook = models.URLField(max_length=500, blank=True)
-    linkedin = models.URLField(max_length=500, blank=True) # <-- ADD THIS FIELD
+    linkedin = models.URLField(max_length=500, blank=True)
 
     def __str__(self):
         return "Social Media Links"
     
+
 class BlogPost(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     image_data = models.TextField(blank=True, null=True)
     publish_option = models.CharField(max_length=50, default="now")
-    scheduled_for = models.DateTimeField(blank=True, null=True)  # <--- NEW FIELD
+    scheduled_for = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.title
 
+
 class Book(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    url = models.URLField(max_length=500)  # Purchase Link
-    image_data = models.TextField(blank=True, null=True)  # Base64 image storage
+    url = models.URLField(max_length=500)
+    image_data = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
+
 
 class VolunteerApplication(models.Model):
     full_name = models.CharField(max_length=255)
@@ -156,19 +266,20 @@ class VolunteerApplication(models.Model):
     preferred_desk = models.CharField(max_length=255, blank=True)
     pitch = models.TextField()
     portfolio_url = models.URLField(max_length=500, blank=True)
-    resume_data = models.TextField(blank=True, null=True) # Base64 encoded file
-    samples_data = models.TextField(blank=True, null=True) # Base64 encoded file
+    resume_data = models.TextField(blank=True, null=True)
+    samples_data = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-created_at"]  # Fixed error from '-random'
 
     def __str__(self):
         return f"{self.full_name} - {self.position}"
-    
+
+
 class OpenPosition(models.Model):
     title = models.CharField(max_length=255)
-    seats = models.IntegerField(default=1)  # Changed from CharField to IntegerField
+    seats = models.IntegerField(default=1)
     description = models.TextField()
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
