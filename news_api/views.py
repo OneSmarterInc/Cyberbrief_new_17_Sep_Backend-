@@ -492,7 +492,6 @@ def generate_email_html(articles, subscriber):
     backend_url = getattr(settings, "BACKEND_URL", FRONTEND_URL)
     unsubscribe_link = f"{backend_url}/api/unsubscribe/?token={token}"
     
-    # --- UPDATED: Date format strictly set to MM-DD-YYYY ---
     current_date = datetime.datetime.now().strftime("%m-%d-%Y")
     
     html = f"""<!DOCTYPE html>
@@ -505,7 +504,7 @@ def generate_email_html(articles, subscriber):
             <h2 style="font-size: 16px; color: #000000; margin: 0 0 10px 0; font-weight: bold;">Cyberbriefs Newsletter</h2>
             <hr style="border: 0; border-top: 1px solid #cccccc; margin-bottom: 15px;" />
             <p style="font-size: 11px; line-height: 1.5; color: #555555; margin-bottom: 15px;">
-                This article stresses the importance of ensuring that an organization's Non-Human Identities (NHIs) are well-prepared to tackle the latest cybersecurity threats.
+                Here are your latest curated cybersecurity updates, compiled directly from our intelligence desk.
             </p>
             <p style="font-size: 11px; color: #555555; margin-bottom: 30px;">Summary Generated at {current_date}</p>
     """
@@ -517,10 +516,10 @@ def generate_email_html(articles, subscriber):
             title = a.ai_headline or a.title
             summary = a.summary or "Summary unavailable."
             
-            # --- UPDATED: Appends &sub=true to bypass frontend subscribe popups ---
+            # Appends &sub=true to bypass frontend subscribe popups
             article_link = f"{FRONTEND_URL}/?article_id={a.id}&sub=true"
             
-            # --- UPDATED: Use professor illustrations matching the website ---
+            # --- EXACT WEBSITE MATCH: Pulls Proff_{id}.png dynamically ---
             prof_id = getattr(a, 'professor_id', 1) or 1
             img_url = f"{FRONTEND_URL}/images/Proff_{prof_id}.png"
             
@@ -533,10 +532,10 @@ def generate_email_html(articles, subscriber):
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                             <td width="115" valign="top" style="padding-right: 15px;">
-                                <img src="{img_url}" width="100" height="100" style="display: block; border-radius: 8px; object-fit: cover; width: 100px; height: 100px; border: none;" alt="News" />
+                                <img src="{img_url}" width="100" height="100" style="display: block; border-radius: 8px; object-fit: cover; width: 100px; height: 100px; border: none;" alt="Professor Avatar" />
                             </td>
                             <td valign="top">
-                                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-family: Arial, sans-serif; color: #000000;">{title}</h3>
+                                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-family: Arial, sans-serif; color: #000000; font-weight: bold;">{title}</h3>
                                 <p style="margin: 0; font-size: 12px; color: #333333; line-height: 1.4; font-family: Arial, sans-serif;">{summary}</p>
                             </td>
                         </tr>
@@ -630,15 +629,24 @@ def process_mass_blast():
         if not subscribers: 
             return False, "No active subscribers found."
             
-        latest_articles = list(Article.objects.filter(is_active=True).order_by('-id')[:5])
-        backend = EmailBackend(host=config.host, port=config.port, username=config.username or config.email, password=config.password, use_tls=(config.security_protocol == 'TLS'), use_ssl=(config.security_protocol == 'SSL'))
+        # --- ENSURES LATEST 5 UPDATED ARTICLES ARE FETCHED ---
+        latest_articles = list(Article.objects.filter(is_active=True).exclude(ai_headline="").order_by('-id')[:5])
+        
+        backend = EmailBackend(
+            host=config.host, 
+            port=config.port, 
+            username=config.username or config.email, 
+            password=config.password, 
+            use_tls=(config.security_protocol == 'TLS'), 
+            use_ssl=(config.security_protocol == 'SSL')
+        )
         
         sent_count = 0
         for sub in subscribers:
             try:
                 user_html = generate_email_html(latest_articles, sub)
                 msg = EmailMultiAlternatives(
-                    subject='Cyberbriefs Newsletter',
+                    subject='Cyberbriefs Daily Intelligence',
                     body='Please view this email in an HTML-compatible client.',
                     from_email=f"{config.name or 'Cyberbriefs'} <{config.email}>",
                     to=[sub.email],
