@@ -727,29 +727,99 @@ def admin_social_links(request):
         "facebook": config.facebook,
         "linkedin": config.linkedin, 
     })
-# --- BLOG ENDPOINTS WITH SCHEDULED FILTERING & BASE64 STORAGE ---
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_blogs(request):
     from .models import BlogPost
+    from django.core.paginator import Paginator
+
     now = timezone.now()
-    
-    blogs = BlogPost.objects.filter(is_active=True).filter(
-        models.Q(publish_option="now") | models.Q(publish_option="schedule", scheduled_for__lte=now)
+
+    blogs = BlogPost.objects.filter(
+        is_active=True
+    ).filter(
+        models.Q(publish_option="now") |
+        models.Q(
+            publish_option="schedule",
+            scheduled_for__lte=now
+        )
     ).order_by("-id")
-    
+
+    page_number = request.GET.get("page", "1")
+    limit = request.GET.get("limit", "1")
+
+    try:
+        page_number = int(page_number)
+    except (TypeError, ValueError):
+        page_number = 1
+
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = 1
+
+    if page_number < 1:
+        page_number = 1
+
+    if limit < 1:
+        limit = 1
+
+    if limit > 20:
+        limit = 20
+
+    paginator = Paginator(blogs, limit)
+
+    if page_number > paginator.num_pages and paginator.num_pages > 0:
+        page_number = paginator.num_pages
+
+    if paginator.num_pages == 0:
+        return Response({
+            "count": 0,
+            "total_pages": 0,
+            "current_page": 1,
+            "next": None,
+            "previous": None,
+            "blogs": []
+        })
+
+    page_obj = paginator.get_page(page_number)
+
     data = []
-    for b in blogs:
+
+    for b in page_obj.object_list:
         data.append({
             "id": b.id,
             "title": b.title,
             "description": b.description,
             "image_url": b.image_data or "",
             "publish_option": b.publish_option,
-            "scheduled_for": b.scheduled_for.strftime("%Y-%m-%d %H:%M") if b.scheduled_for else "",
-            "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
+            "scheduled_for": (
+                b.scheduled_for.strftime("%Y-%m-%d %H:%M")
+                if b.scheduled_for
+                else ""
+            ),
+            "created_at": b.created_at.strftime(
+                "%Y-%m-%d %H:%M"
+            )
         })
-    return Response({"blogs": data})
+
+    return Response({
+        "count": paginator.count,
+        "total_pages": paginator.num_pages,
+        "current_page": page_obj.number,
+        "next": (
+            page_obj.next_page_number()
+            if page_obj.has_next()
+            else None
+        ),
+        "previous": (
+            page_obj.previous_page_number()
+            if page_obj.has_previous()
+            else None
+        ),
+        "blogs": data
+    })
+
 
 @api_view(["GET", "POST"])
 @authentication_classes([CookieTokenAuthentication])
