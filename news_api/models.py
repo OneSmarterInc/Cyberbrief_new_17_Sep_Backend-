@@ -42,26 +42,18 @@ PROFESSOR_KEYWORD_MAP = {
         "double extortion", "malware analysis", "reverse engineering malware", 
         "sophos security", "eset security", "trend micro"
     ],
-    5: [  # Identity & Data Security
-        "data breach", "data breaches", "data leak", "data leaks", "information leak", 
-        "information disclosure", "database breach", "account takeover", "ato", 
-        "credential theft", "credential stealing", "stolen credentials", "stolen data", 
-        "leaked credentials", "credential dump", "data dump", "encryption", "decryption", 
-        "cryptography", "pki", "digital certificate", "ssl", "tls", "https security", 
-        "authentication", "authorization", "mfa", "2fa", "multi-factor authentication", 
-        "password security", "passwordless", "identity security", "iam", 
-        "identity and access management", "pam", "privileged access management", 
-        "zero trust", "zero-trust", "access control"
+    5: [  # REPLACED: AI & Machine Learning Cybersecurity
+        "artificial intelligence", "ai security", "machine learning", "llm vulnerability", 
+        "prompt injection", "large language model", "chatgpt security", "deepfake", 
+        "generative ai", "genai security", "data poisoning", "model inversion", 
+        "adversarial ai", "ai threat", "automated attack", "ai-powered attack", 
+        "neural network security"
     ],
-    6: [  # Network & Infrastructure Security
-        "firewall", "waf", "web application firewall", "ddos", "distributed denial of service", 
-        "denial of service", "dos attack", "botnet attack", "dns attack", "dns hijacking", 
-        "dns poisoning", "domain hijacking", "bgp hijacking", "network attack", 
-        "network intrusion", "iot security", "ot security", "ics security", "scada security", 
-        "industrial cybersecurity", "critical infrastructure security", 
-        "automotive cybersecurity", "vehicle cybersecurity", "cisco security", 
-        "fortinet security", "palo alto networks security", "check point security", 
-        "zscaler security"
+    6: [  # REPLACED: Financial Cybersecurity & FinTech
+        "fintech security", "bank breach", "financial fraud", "cryptocurrency hack", 
+        "crypto theft", "defi exploit", "blockchain security", "smart contract vulnerability", 
+        "swift network", "payment security", "atm skimming", "wire fraud", 
+        "digital wallet breach", "crypto exchange attack", "financial cybercrime"
     ],
     7: [  # Cloud & Supply Chain Security
         "cloud security", "cloud cybersecurity", "aws security", "azure security", 
@@ -72,13 +64,11 @@ PROFESSOR_KEYWORD_MAP = {
         "supply chain attack", "supply-chain security", "open source security", 
         "third-party risk", "dependency confusion", "typosquatting"
     ],
-    8: [  # Privacy, Compliance & Social Engineering
-        "phishing", "spear phishing", "spearphishing", "whaling", "smishing", "vishing", 
-        "business email compromise", "bec", "email security", "malicious email", 
-        "social engineering", "identity theft", "credential harvesting", "privacy", 
-        "data privacy", "privacy breach", "privacy violation", "gdpr", "hipaa security", 
-        "compliance", "security compliance", "cyber compliance", "pci dss", "iso 27001", 
-        "nist cybersecurity", "cisa", "cis controls"
+    8: [  # REPLACED: Core Security & Cyber-Physical Defense
+        "cyber warfare", "national security", "cyber-physical", "infrastructure attack", 
+        "homeland security", "cisa", "cyber defense", "state-sponsored attack", 
+        "iot security", "physical breach", "critical infrastructure", "ot security", 
+        "scada security", "industrial cybersecurity", "grid attack", "cyber espionage"
     ]
 }
 
