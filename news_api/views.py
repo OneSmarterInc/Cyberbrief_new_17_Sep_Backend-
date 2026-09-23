@@ -489,23 +489,11 @@ def unsubscribe_email(request):
 
 def generate_email_html(articles, subscriber):
     token = signing.dumps({"subscriber_id": subscriber.id})
-    unsubscribe_link = f"{BACKEND_URL}/api/unsubscribe/?token={token}"
+    backend_url = getattr(settings, "BACKEND_URL", FRONTEND_URL)
+    unsubscribe_link = f"{backend_url}/api/unsubscribe/?token={token}"
     
     # --- UPDATED: Date format strictly set to MM-DD-YYYY ---
     current_date = datetime.datetime.now().strftime("%m-%d-%Y")
-    
-    PUBLIC_IMAGES = [
-    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80"
-]
     
     html = f"""<!DOCTYPE html>
     <html>
@@ -525,14 +513,17 @@ def generate_email_html(articles, subscriber):
     if not articles:
         html += "<p style='color: red;'><strong>Notice:</strong> No active articles were found in the database.</p>"
     else:
-        for i, a in enumerate(articles):
+        for a in articles:
             title = a.ai_headline or a.title
             summary = a.summary or "Summary unavailable."
             
             # --- UPDATED: Appends &sub=true to bypass frontend subscribe popups ---
             article_link = f"{FRONTEND_URL}/?article_id={a.id}&sub=true"
             
-            img_url = PUBLIC_IMAGES[i % len(PUBLIC_IMAGES)]
+            # --- UPDATED: Use professor illustrations matching the website ---
+            prof_id = getattr(a, 'professor_id', 1) or 1
+            img_url = f"{FRONTEND_URL}/images/Proff_{prof_id}.png"
+            
             if len(summary) > 230:
                 summary = summary[:227] + "..."
             
