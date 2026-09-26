@@ -168,6 +168,7 @@ def register(request):
     )
     return response
 
+@csrf_exempt
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([SensitiveActionThrottle])
@@ -182,9 +183,8 @@ def login(request):
     if user is None:
         return Response({"error": "Invalid username or password."}, status=401)
 
-    is_admin = user.is_staff or user.is_superuser
-    if not is_admin:
-        return Response({"error": "Access denied. Admin privileges required."}, status=403)
+    # --- THE ADMIN CHECK HAS BEEN REMOVED HERE ---
+    # Regular users can now successfully proceed to 2FA and login without getting a 403.
 
     from .models import Admin2FA
     two_fa, created = Admin2FA.objects.get_or_create(user=user)
