@@ -210,6 +210,7 @@ CORS_ALLOWED_ORIGINS = [
     'https://www.cyberbriefs.org',
     'https://backend.cyberbriefs.org',
     'http://backend.cyberbriefs.org',
+    'https://cyberbrief-new-15-sep-2026.vercel.app',
 ]
 
 
@@ -232,6 +233,7 @@ if env_cors and env_cors != '*':
 CSRF_TRUSTED_ORIGINS = [
     'https://backend.cyberbriefs.org',
     'http://backend.cyberbriefs.org',
+    'https://cyberbrief-new-15-sep-2026.vercel.app',
 ]
 
 
