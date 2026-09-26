@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .views import chatbot_endpoint
 
 urlpatterns = [
     # --- PUBLIC CORE & AUTH ENDPOINTS ---
@@ -50,4 +51,10 @@ urlpatterns = [
     path('positions/', views.get_positions),
     path('admin/positions/', views.admin_positions),
     path('admin/positions/<int:pos_id>/', views.admin_positions),
+
+    # --- PASSWORD RESET ENDPOINTS ---
+    path('password-reset/', views.password_reset_request, name='password_reset_request'),
+    path('password-reset-confirm/', views.password_reset_confirm, name='password_reset_confirm'),
+
+    path('chat/', chatbot_endpoint, name='chatbot'),
 ]
