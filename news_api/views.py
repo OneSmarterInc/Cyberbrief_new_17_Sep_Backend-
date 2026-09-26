@@ -129,6 +129,7 @@ def news(request):
     })
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 @throttle_classes([SensitiveActionThrottle])
 def register(request):
     username = request.data.get("username", "").strip()
@@ -164,6 +165,7 @@ def register(request):
     return response
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 @throttle_classes([SensitiveActionThrottle])
 def login(request):
     username = request.data.get("username", "").strip()
@@ -1211,6 +1213,7 @@ def password_reset_request(request):
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 @throttle_classes([SensitiveActionThrottle])
 def password_reset_confirm(request):
     uid = request.data.get("uid")
