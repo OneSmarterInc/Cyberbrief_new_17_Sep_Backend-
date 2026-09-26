@@ -33,6 +33,18 @@ from .models import OpenPosition, VolunteerApplication
 from .models import Article, SocialMediaConfig, RSSFeed
 from .services import get_stored_news
 
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .chatbot_service import generate_chatbot_reply
+
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from .models import SMTPConfig
+from django.core.mail.backends.smtp import EmailBackend
+from django.core.mail import EmailMultiAlternatives
+
 logger = logging.getLogger(__name__)
 
 # --- UPDATED: Live Production URLs ---
@@ -1131,3 +1143,97 @@ def get_positions(request):
     positions = OpenPosition.objects.filter(is_active=True)
     data = [{"id": p.id, "title": p.title, "seats": p.seats, "description": p.description} for p in positions]
     return Response({"positions": data})
+
+
+@csrf_exempt
+def chatbot_endpoint(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST method required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        query = data.get("message", "").strip()
+
+        if not query:
+            return JsonResponse({"error": "Empty message"}, status=400)
+
+        reply = generate_chatbot_reply(query)
+        return JsonResponse({"reply": reply})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@throttle_classes([SensitiveActionThrottle])
+def password_reset_request(request):
+    email = request.data.get("email", "").strip()
+    if not email:
+        return Response({"error": "Email is required."}, status=400)
+    
+    associated_users = User.objects.filter(email=email)
+    if associated_users.exists():
+        config = SMTPConfig.objects.first()
+        
+        for user in associated_users:
+            subject = "Password Reset Requested - Cyberbriefs"
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            reset_link = f"{FRONTEND_URL}/login?reset_uid={uid}&reset_token={token}"
+            
+            message = (
+                f"Hello {user.username},\n\n"
+                f"You requested a password reset for your Cyberbriefs account.\n"
+                f"Click the link below to set a new password:\n{reset_link}\n\n"
+                f"If you didn't request this, please ignore this email."
+            )
+            
+            try:
+                if config:
+                    backend = EmailBackend(
+                        host=config.host, 
+                        port=config.port, 
+                        username=config.username or config.email, 
+                        password=config.password, 
+                        use_tls=(config.security_protocol == 'TLS'), 
+                        use_ssl=(config.security_protocol == 'SSL')
+                    )
+                    from_email = f"{config.name} <{config.email}>"
+                    msg = EmailMultiAlternatives(subject, message, from_email, [user.email], connection=backend)
+                    msg.send()
+                else:
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+            except Exception:
+                logger.exception("Failed to send password reset email via SMTP")
+                
+    return Response({"message": "If an account with that email exists, a password reset link has been sent."})
+
+
+@api_view(["POST"])
+@throttle_classes([SensitiveActionThrottle])
+def password_reset_confirm(request):
+    uid = request.data.get("uid")
+    token = request.data.get("token")
+    new_password = request.data.get("new_password")
+
+    if not uid or not token or not new_password:
+        return Response({"error": "All fields are required."}, status=400)
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as exc:
+            return Response({"error": " ".join(exc.messages)}, status=400)
+            
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Password has been successfully reset. You can now log in."})
+    else:
+        return Response({"error": "The reset link is invalid or has expired."}, status=400)
