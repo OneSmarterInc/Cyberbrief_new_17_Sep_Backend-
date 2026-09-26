@@ -183,9 +183,30 @@ def login(request):
     if user is None:
         return Response({"error": "Invalid username or password."}, status=401)
 
-    # --- THE ADMIN CHECK HAS BEEN REMOVED HERE ---
-    # Regular users can now successfully proceed to 2FA and login without getting a 403.
+    is_admin = user.is_staff or user.is_superuser
 
+    # --- NORMAL USER LOGIN (Bypass 2FA) ---
+    if not is_admin:
+        token, _ = Token.objects.get_or_create(user=user)
+        
+        response = Response({
+            "message": "Login successful.",
+            "user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": False},
+            "token": token.key
+        })
+        
+        # Set the secure cookie for the normal user
+        response.set_cookie(
+            'auth_token', 
+            token.key, 
+            httponly=True, 
+            secure=True, 
+            samesite='None', 
+            max_age=43200
+        )
+        return response
+
+    # --- ADMIN USER LOGIN (Enforces 2FA) ---
     from .models import Admin2FA
     two_fa, created = Admin2FA.objects.get_or_create(user=user)
 
