@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from .models import Article, RSSFeed
+from .ai_queue import enqueue_pending_articles
 from .rss_feeds import DEFAULT_RSS_FEEDS
 
 # --- STRICT CYBERSECURITY KEYWORD FILTER ---
@@ -562,111 +563,12 @@ def fetch_and_store_news():
         flush=True,
     )
 
-    print("Checking for unsummarized articles...", flush=True)
-    pending_articles = list(
-        Article.objects.filter(ai_headline="").order_by("id")[:10]
-    )
+    queued_count = enqueue_pending_articles("cyber")
+
     print(
-        f"Found {len(pending_articles)} unsummarized articles.",
-        flush=True,
+        f"AI queue jobs added: {queued_count}",
+        flush=True
     )
-
-    if pending_articles:
-        print(
-            f"AI Model Processing up to 10 unsummarized cybersecurity articles with Qwen2.5...",
-            flush=True,
-        )
-        
-        try:
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-            MODEL_PATH = os.path.join(settings.BASE_DIR, "ai_model")
-            tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-            model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
-        except Exception as e:
-            print(f"Failed to load AI model from {MODEL_PATH}. Error: {e}")
-            return
-
-        for art in pending_articles:
-            cleaned_title = clean_text(art.title)
-            cleaned_raw_summary = clean_text(art.summary)
-            
-            if len(cleaned_raw_summary.split()) < 10:
-                content_to_use = f"A cybersecurity report and technical advisory focusing on: {cleaned_title}."
-            else:
-                content_to_use = cleaned_raw_summary
-
-            messages = [
-                {
-                    "role": "system", 
-                    "content": (
-                        "You are a strict, zero-hallucination cybersecurity news editor. "
-                        "Summarize the provided text accurately and objectively in plain English (80-120 words). "
-                        "CRITICAL RULES:\n"
-                        "1. Use ONLY facts explicitly stated in the source text. Do not extrapolate.\n"
-                        "2. NEVER add historical comparisons, corporate boilerplate (e.g., 'commitment to security'), or unverified impacts.\n"
-                        "3. If details are sparse, keep the summary brief and factual based solely on the title and provided snippet.\n"
-                        "4. Do not repeat the title."
-                    )
-                },
-                {"role": "user", "content": f"Title: {cleaned_title}\n\nContent: {content_to_use}"}
-            ]
-            
-            try:
-                text_input = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True
-                )
-                
-                inputs = tokenizer([text_input], return_tensors="pt").to(model.device)
-                
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=220,    
-                    min_new_tokens=100,    
-                    temperature=0.3,
-                    do_sample=True,
-                    top_p=0.9,
-                    repetition_penalty=1.15 
-                )
-                
-                generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
-                raw_summary = tokenizer.decode(generated_tokens, skip_special_tokens=True)
-                final_summary = strip_ai_artifacts(raw_summary)
-                
-            except Exception as exc:
-                print(f"AI Error on '{art.title[:20]}': {exc}")
-                continue
-
-            if final_summary:
-                if final_summary.lower().startswith(cleaned_title.lower()):
-                    final_summary = final_summary[len(cleaned_title):].strip()
-                
-                final_summary = re.sub(r'^[^a-zA-Z0-9]+', '', final_summary).strip()
-                
-                if len(final_summary) > 0:
-                    final_summary = final_summary[0].upper() + final_summary[1:]
-                
-                if not final_summary.endswith((".", "!", "?")):
-                    last_punctuation = max(final_summary.rfind("."), final_summary.rfind("!"), final_summary.rfind("?"))
-                    if last_punctuation > len(final_summary) * 0.5:
-                        final_summary = final_summary[:last_punctuation+1]
-                    else:
-                        final_summary += "."
-
-            if len(final_summary.split()) < 15:
-                final_summary = f"Comprehensive cybersecurity coverage regarding {cleaned_title}. Read the complete analysis via the original source link provided below."
-
-            art.ai_headline = art.title[:500]
-            art.summary = final_summary[:2000]
-
-            # --- RE-EVALUATE PROFESSOR ID WITH AI SUMMARY ---
-            from .models import determine_professor_by_content
-            combined_text = f"{art.title} {art.ai_headline} {art.summary} {art.category}"
-            art.professor_id = determine_professor_by_content(combined_text)
-
-            art.save(update_fields=["ai_headline", "summary", "professor_id"])
-            print(f"--> AI Summary & Desk Assignment Ready [Desk ID: {art.professor_id}]: {art.title[:30]}...")
 
     close_old_connections()
 
