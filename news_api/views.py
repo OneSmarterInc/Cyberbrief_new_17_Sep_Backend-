@@ -33,10 +33,8 @@ from .models import OpenPosition, VolunteerApplication
 from .models import Article, SocialMediaConfig, RSSFeed
 from .services import get_stored_news
 
-import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .chatbot_service import generate_chatbot_reply
 
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -1170,25 +1168,6 @@ def get_positions(request):
     positions = OpenPosition.objects.filter(is_active=True)
     data = [{"id": p.id, "title": p.title, "seats": p.seats, "description": p.description} for p in positions]
     return Response({"positions": data})
-
-
-@csrf_exempt
-def chatbot_endpoint(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST method required"}, status=405)
-
-    try:
-        data = json.loads(request.body)
-        query = data.get("message", "").strip()
-
-        if not query:
-            return JsonResponse({"error": "Empty message"}, status=400)
-
-        reply = generate_chatbot_reply(query)
-        return JsonResponse({"reply": reply})
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
 
 
 @api_view(["POST"])
